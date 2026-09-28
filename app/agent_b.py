@@ -1,48 +1,130 @@
 import os
+import json
+
 from dotenv import load_dotenv
 from openai import OpenAI
 
+
+# Load variables from .env
 load_dotenv()
 
-# Initialize the OpenAI client pointing to the ASI:One gateway
+
+# Connect to ASI:One
 client = OpenAI(
     api_key=os.getenv("ASI_ONE_API_KEY"),
-    base_url="https://api.asi1.ai/v1"
+    base_url="https://api.asi1.ai/v1",
 )
 
 
-def ask_agent_b(question):
+def ask_agent_b(question: str) -> dict:
+    """
+    Agent B:
+    Independent skeptical and critical analyst.
+    """
+
     prompt = f"""
 You are Agent B in TruthBridge.
 
-Your role is to critically examine a question and look for
-missing information, alternative interpretations, contradictions,
-and reasons why another agent's conclusion might be wrong.
+Analyze the following question independently.
+
+Your role is to critically examine the issue rather than simply
+agreeing with a likely answer.
+
+Your responsibilities:
+1. Produce your own claim.
+2. Look for assumptions and weaknesses.
+3. Identify alternative interpretations.
+4. Identify missing or conflicting evidence.
+5. Explain what evidence could prove your claim wrong.
+6. Never invent evidence or sources.
+7. Clearly state uncertainty.
 
 Question:
 {question}
-
-Give:
-1. Your independent claim
-2. Your reasoning
-3. What evidence would support your claim
-4. What evidence could prove your claim wrong
-
-Do not agree simply because another agent might give a different answer.
-Be skeptical and identify uncertainty.
 """
 
     response = client.chat.completions.create(
-        model="asi1-mini",
-        messages=[{"role": "user", "content": prompt}]
+        model="asi1",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are Agent B, a skeptical and critical analyst "
+                    "working inside the TruthBridge conflict-resolution system."
+                ),
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "truthbridge_agent_b",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "claim": {
+                            "type": "string"
+                        },
+                        "reasoning": {
+                            "type": "string"
+                        },
+                        "evidence_needed": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "uncertainty": {
+                            "type": "string"
+                        },
+                        "challenge_to_other_agent": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "claim",
+                        "reasoning",
+                        "evidence_needed",
+                        "uncertainty",
+                        "challenge_to_other_agent"
+                    ],
+                    "additionalProperties": False
+                }
+            }
+        },
+        temperature=0.3,
     )
 
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+
+    if not content:
+        raise RuntimeError("Agent B returned an empty response.")
+
+    return json.loads(content)
 
 
 if __name__ == "__main__":
-    question = input("Enter a question: ")
-    answer = ask_agent_b(question)
 
-    print("\n=== AGENT B ===")
-    print(answer)
+    question = input("\nEnter a question: ").strip()
+
+    if not question:
+        print("Please enter a question.")
+        raise SystemExit(1)
+
+    try:
+        result = ask_agent_b(question)
+
+        print("\n==============================")
+        print("         TRUTHBRIDGE")
+        print("           AGENT B")
+        print("==============================")
+
+        print(json.dumps(result, indent=2))
+
+    except Exception as error:
+        print("\nAgent B failed:")
+        print(error)

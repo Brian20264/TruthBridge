@@ -1,71 +1,115 @@
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
+from typing import Dict
 
-load_dotenv()
-
-# Initialize client pointing to the ASI:One gateway
-client = OpenAI(
-    api_key=os.getenv("ASI_ONE_API_KEY"),
-    base_url="https://api.asi1.ai/v1"
-)
+from evidence import Evidence
+from evidence_evaluator import evaluate_evidence
+from audit import build_audit_trail
 
 
-def resolve_conflict(question, agent_a_answer, agent_b_answer):
+def resolve_conflict(
+    claim_a: str,
+    evidence_a: Evidence,
+    claim_b: str,
+    evidence_b: Evidence,
+) -> Dict:
+    """
+    Compare two competing claims using their evidence,
+    then produce a resolution and audit information.
+    """
 
-    prompt = f"""
-You are the Resolution Agent in TruthBridge.
+    # Evaluate the evidence for both claims
+    evaluated_a = evaluate_evidence(evidence_a)
+    evaluated_b = evaluate_evidence(evidence_b)
 
-Your job is NOT simply to choose Agent A or Agent B.
+    score_a = evaluated_a["score"]
+    score_b = evaluated_b["score"]
 
-You must examine their reasoning and determine whether their
-claims actually conflict.
+    # Determine the resolution
+    if not evidence_a.supports_claim and not evidence_b.supports_claim:
+        outcome = "INSUFFICIENT_EVIDENCE"
 
-USER QUESTION:
-{question}
+    elif abs(score_a - score_b) < 0.05:
+        outcome = "UNRESOLVED"
 
-AGENT A:
-{agent_a_answer}
+    elif score_a > score_b and evidence_a.supports_claim:
+        outcome = "CLAIM_A_BETTER_SUPPORTED"
 
-AGENT B:
-{agent_b_answer}
+    elif score_b > score_a and evidence_b.supports_claim:
+        outcome = "CLAIM_B_BETTER_SUPPORTED"
 
-Analyze the disagreement.
+    else:
+        outcome = "UNRESOLVED"
 
-Return your response using exactly these sections:
+    return {
+        "claim_a": claim_a,
+        "claim_b": claim_b,
+        "evidence_a": evaluated_a,
+        "evidence_b": evaluated_b,
+        "score_difference": round(abs(score_a - score_b), 3),
+        "outcome": outcome,
+    }
 
-CONFLICT:
-State whether there is a genuine conflict.
 
-CLAIM A:
-Summarize Agent A's claim.
+def main():
+    """
+    Demonstration of the TruthBridge resolution system.
+    """
 
-CLAIM B:
-Summarize Agent B's claim.
+    claim_a = "The student satisfies the prerequisite."
 
-CONFLICT POINT:
-Explain exactly where the claims differ.
+    claim_b = "The student does not satisfy the prerequisite."
 
-EVIDENCE NEEDED:
-State what evidence would help resolve the disagreement.
-
-RESOLUTION:
-Give the most justified conclusion based ONLY on the information provided.
-If there is not enough information, say so.
-
-REASONING:
-Explain step-by-step why you reached that conclusion.
-
-CHALLENGE:
-Explain what new information could change the conclusion.
-
-Do not invent evidence.
-Do not pretend uncertainty does not exist.
-"""
-
-    response = client.chat.completions.create(
-        model="asi1-mini",
-        messages=[{"role": "user", "content": prompt}]
+    evidence_a = Evidence(
+        source="Official University Policy",
+        source_type="official",
+        text=(
+            "The official university policy states that "
+            "the student satisfies the prerequisite."
+        ),
+        supports_claim=True,
     )
 
-    return response.choices[0].message.content
+    evidence_b = Evidence(
+        source="Unverified Website",
+        source_type="unknown",
+        text=(
+            "An unverified website claims that the "
+            "student does not satisfy the prerequisite."
+        ),
+        supports_claim=False,
+    )
+
+    result = resolve_conflict(
+        claim_a,
+        evidence_a,
+        claim_b,
+        evidence_b,
+    )
+
+    print("\n========================================")
+    print("          TRUTHBRIDGE RESOLVER")
+    print("========================================")
+
+    print("\nCLAIM A:")
+    print(result["claim_a"])
+
+    print("\nCLAIM B:")
+    print(result["claim_b"])
+
+    print("\nEVIDENCE A SCORE:")
+    print(result["evidence_a"]["score"])
+
+    print("\nEVIDENCE B SCORE:")
+    print(result["evidence_b"]["score"])
+
+    print("\nSCORE DIFFERENCE:")
+    print(result["score_difference"])
+
+    print("\nOUTCOME:")
+    print(result["outcome"])
+
+    print("\n")
+    print(build_audit_trail(result))
+
+
+if __name__ == "__main__":
+    main()
