@@ -5,11 +5,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-# Load variables from .env
 load_dotenv()
 
 
-# Connect to ASI:One
 client = OpenAI(
     api_key=os.getenv("ASI_ONE_API_KEY"),
     base_url="https://api.asi1.ai/v1",
@@ -19,25 +17,47 @@ client = OpenAI(
 def ask_agent_b(question: str) -> dict:
     """
     Agent B:
-    Independent skeptical and critical analyst.
+    Independent skeptical counter-position analyst.
+
+    Agent B tests the strongest default interpretation and looks
+    specifically for assumptions that could make that interpretation
+    incomplete, conditional, or wrong.
     """
 
     prompt = f"""
 You are Agent B in TruthBridge.
 
-Analyze the following question independently.
+Analyze this question independently:
 
-Your role is to critically examine the issue rather than simply
-agreeing with a likely answer.
+{question}
+
+Your role is the SKEPTICAL COUNTER-POSITION ANALYST.
 
 Your responsibilities:
-1. Produce your own claim.
-2. Look for assumptions and weaknesses.
-3. Identify alternative interpretations.
-4. Identify missing or conflicting evidence.
-5. Explain what evidence could prove your claim wrong.
-6. Never invent evidence or sources.
-7. Clearly state uncertainty.
+1. Identify the strongest reasonable interpretation of the question.
+2. Test the default position that another analyst might reach.
+3. Look specifically for hidden assumptions, exceptions, boundary conditions,
+   policy dependence, ambiguous definitions, or missing facts.
+4. Produce your own claim rather than simply repeating the expected answer.
+5. When the available information supports a materially different conclusion,
+   state that conclusion clearly and directly.
+6. Explain the reasoning behind your claim.
+7. Identify the evidence that would be needed to verify it.
+8. Explain what evidence could prove your claim wrong.
+9. State important uncertainty.
+10. Never invent evidence, laws, policies, statistics, or sources.
+
+Important:
+- Do NOT automatically say "it depends" without explaining exactly what it
+  depends on.
+- Do NOT automatically agree with a conventional or majority answer.
+- Do NOT manufacture disagreement merely for the sake of disagreement.
+- The purpose is genuine independent scrutiny.
+- Your claim must be specific enough to be compared against another agent's claim.
+- If the question lacks enough information for a definitive conclusion,
+  explain precisely which missing facts prevent one.
+- Do not pretend to know facts about a specific institution, organization,
+  or jurisdiction unless they are provided in the question.
 
 Question:
 {question}
@@ -49,8 +69,8 @@ Question:
             {
                 "role": "system",
                 "content": (
-                    "You are Agent B, a skeptical and critical analyst "
-                    "working inside the TruthBridge conflict-resolution system."
+                    "You are Agent B, the skeptical counter-position analyst "
+                    "inside the TruthBridge multi-agent reasoning system."
                 ),
             },
             {

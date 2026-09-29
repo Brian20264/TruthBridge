@@ -5,11 +5,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-# Load environment variables from .env
 load_dotenv()
 
 
-# Connect to ASI:One
 client = OpenAI(
     api_key=os.getenv("ASI_ONE_API_KEY"),
     base_url="https://api.asi1.ai/v1",
@@ -19,20 +17,35 @@ client = OpenAI(
 def ask_agent_a(question: str) -> dict:
     """
     Agent A:
-    Evidence-focused independent analyst.
+    Strict/default-position analyst.
+
+    Agent A establishes the strongest reasonable default interpretation
+    of the question so that Agent B can independently challenge it.
     """
 
     prompt = f"""
 You are Agent A in TruthBridge.
 
-Analyze the following question independently.
+Analyze this question independently:
+
+{question}
+
+Your role is the STRICT DEFAULT-POSITION ANALYST.
 
 Your responsibilities:
-1. Produce your best-supported claim.
-2. Explain the reasoning behind the claim.
-3. Identify the evidence that would be needed to verify it.
-4. State important uncertainty.
-5. Never invent evidence or sources.
+1. Identify the strongest reasonable default answer to the question.
+2. State that position clearly and directly.
+3. Give the reasoning supporting that position.
+4. Identify the specific evidence that would be needed to verify the position.
+5. State important uncertainty and exceptions.
+6. Never invent evidence, laws, policies, statistics, or sources.
+
+Important:
+- Do not automatically answer "it depends" merely because some uncertainty exists.
+- First identify the most defensible default position supported by the information available.
+- Clearly separate the general/default position from exceptions.
+- Your claim must be specific enough that another independent agent can challenge it.
+- Do not pretend to know facts about a specific institution, organization, or jurisdiction unless they are provided in the question.
 
 Question:
 {question}
@@ -44,8 +57,8 @@ Question:
             {
                 "role": "system",
                 "content": (
-                    "You are an evidence-focused AI analyst "
-                    "working inside the TruthBridge conflict-resolution system."
+                    "You are Agent A, the strict default-position analyst "
+                    "inside the TruthBridge multi-agent reasoning system."
                 ),
             },
             {
